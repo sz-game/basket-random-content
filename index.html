@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Local HTML Formatter</title>
+    <title>Smart Local HTML Formatter - Fixed</title>
     <style>
         * {
             box-sizing: border-box;
@@ -35,6 +35,11 @@
             gap: 20px;
             margin-bottom: 30px;
         }
+        @media (max-width: 768px) {
+            .tool-container {
+                grid-template-columns: 1fr;
+            }
+        }
         .panel {
             background: white;
             border-radius: 15px;
@@ -58,6 +63,11 @@
             font-size: 14px;
             font-family: 'Courier New', monospace;
             resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+        .input-area:focus {
+            border-color: #667eea;
+            outline: none;
         }
         .output-area {
             background: #f8f9fa;
@@ -69,7 +79,7 @@
             font-family: 'Courier New', monospace;
             font-size: 12px;
             white-space: pre-wrap;
-            word-break: break-all;
+            word-break: break-word;
         }
         .controls {
             display: flex;
@@ -85,6 +95,16 @@
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s ease;
+            min-width: 120px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
         }
         .btn-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -117,6 +137,7 @@
             border-radius: 8px;
             margin: 15px 0;
             font-weight: bold;
+            transition: all 0.3s ease;
         }
         .status.success {
             background: #d4edda;
@@ -152,19 +173,19 @@
     <div class="main-container">
         <div class="header">
             <h1>🎯 Smart Local HTML Formatter</h1>
-            <p>Advanced parsing - Zero content loss guaranteed!</p>
+            <p>Advanced parsing - Exact format matching!</p>
         </div>
 
         <div class="instructions">
-            <h3>✅ Advanced Local Processing:</h3>
+            <h3>✅ Perfect Format Matching:</h3>
             <div class="step">
-                <strong>🎯 Smart Parsing:</strong> Intelligent content detection with zero loss
+                <strong>🎯 Smart Detection:</strong> Automatically detects Technical Details, Controls sections
             </div>
             <div class="step">
-                <strong>📋 Perfect Structure:</strong> Exact Basket Random format matching
+                <strong>📋 Exact Structure:</strong> Preserves your original text format perfectly
             </div>
             <div class="step">
-                <strong>⚡ Instant Results:</strong> No API needed - works 100% locally
+                <strong>⚡ Tab Support:</strong> Handles tab-separated data exactly as provided
             </div>
         </div>
 
@@ -174,12 +195,28 @@
                 <textarea 
                     id="inputText" 
                     class="input-area" 
-                    placeholder="Paste your content here..."
+                    placeholder="Paste your content here... 
+
+Example format:
+Game Title Here
+Description text...
+
+TECHNICAL DETAILS
+Feature	Details
+Technology	HTML5
+Developer	Your Developer
+
+🖥 Desktop Controls
+Action	Control
+Move Up	Arrow Key"
                 ></textarea>
                 
                 <div class="controls">
                     <button class="btn btn-primary" onclick="smartConvert()">
                         🚀 Smart Convert
+                    </button>
+                    <button class="btn btn-info" onclick="loadSampleData()">
+                        🎮 Load Sample
                     </button>
                     <button class="btn btn-info" onclick="clearAll()">
                         🗑️ Clear All
@@ -206,7 +243,7 @@
 
         <div class="preview-section">
             <div class="panel-title">👀 Live Preview</div>
-            <iframe id="previewFrame" class="preview-frame"></iframe>
+            <iframe id="previewFrame" class="preview-frame" title="HTML Preview"></iframe>
         </div>
     </div>
 
@@ -215,162 +252,186 @@
             const status = document.getElementById('status');
             status.className = `status ${type}`;
             status.textContent = message;
-            setTimeout(() => {
-                status.innerHTML = '';
-                status.className = '';
-            }, 4000);
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    status.innerHTML = '';
+                    status.className = '';
+                }, 3000);
+            }
         }
 
         function smartConvert() {
             const inputText = document.getElementById('inputText').value;
+            
             if (!inputText.trim()) {
-                showStatus('Please enter text first!', 'error');
+                showStatus('❌ Please enter some content first!', 'error');
                 return;
             }
 
             try {
-                const htmlContent = generateSmartHTML(inputText);
+                const htmlContent = generateHTML(inputText);
                 document.getElementById('outputCode').textContent = htmlContent;
                 
                 const preview = document.getElementById('previewFrame');
-                preview.src = 'data:text/html;charset=utf-8,' + encodeURIComponent(htmlContent);
+                preview.srcdoc = htmlContent;
                 
                 showStatus('✅ Content converted successfully!');
+                
             } catch (error) {
+                console.error('Conversion error:', error);
                 showStatus('❌ Error: ' + error.message, 'error');
             }
         }
 
-        function generateSmartHTML(text) {
-            // Split by lines and preserve everything
-            const allLines = text.split('\n');
+        function generateHTML(text) {
+            // Parse the text exactly as user provided
+            const lines = text.split('\n');
             
             // Extract title (first non-empty line)
-            const title = allLines.find(line => line.trim()) || 'Game Title';
-            
-            // Initialize content arrays
+            let title = '';
             let description = [];
             let technicalDetails = [];
-            let howToPlay = [];
+            let howToPlayContent = [];
             let desktopControls = [];
             let mobileControls = [];
             let tabletControls = [];
             let rating = '';
             
             let currentSection = 'description';
-            
-            // Process every single line
-            for (let i = 0; i < allLines.length; i++) {
-                const line = allLines[i];
-                const lowerLine = line.toLowerCase().trim();
+            let i = 0;
+
+            // Get title
+            while (i < lines.length && !lines[i].trim()) i++;
+            if (i < lines.length) {
+                title = lines[i].trim();
+                i++;
+            }
+
+            // Parse content
+            while (i < lines.length) {
+                const line = lines[i].trim();
+                const lowerLine = line.toLowerCase();
                 
-                // Skip the title line
-                if (i === 0 || line === title) continue;
-                
-                // Detect rating
-                if (line.includes('⭐') || (lowerLine.includes('rating') && line.includes('/'))) {
-                    rating = line;
-                    continue;
-                }
-                
-                // Section detection
-                if (lowerLine.includes('technical details') || lowerLine.includes('feature') && lowerLine.includes('details')) {
+                if (lowerLine === 'technical details') {
                     currentSection = 'technical';
+                    i++;
                     continue;
                 } else if (lowerLine.includes('how to play')) {
                     currentSection = 'howtoplay';
-                    howToPlay.push(line);
+                    howToPlayContent.push(line);
+                    i++;
                     continue;
-                } else if (lowerLine.includes('desktop') && (lowerLine.includes('controls') || lowerLine.includes('🖥'))) {
+                } else if (lowerLine.includes('🖥') && lowerLine.includes('controls')) {
                     currentSection = 'desktop';
                     desktopControls.push(line);
+                    i++;
                     continue;
-                } else if (lowerLine.includes('mobile') && (lowerLine.includes('controls') || lowerLine.includes('📱'))) {
+                } else if (lowerLine.includes('📱') && lowerLine.includes('controls')) {
                     currentSection = 'mobile';
                     mobileControls.push(line);
+                    i++;
                     continue;
-                } else if (lowerLine.includes('tablet') && (lowerLine.includes('controls') || lowerLine.includes('📲'))) {
+                } else if ((lowerLine.includes('📟') || lowerLine.includes('📲')) && lowerLine.includes('controls')) {
                     currentSection = 'tablet';
                     tabletControls.push(line);
+                    i++;
                     continue;
                 }
                 
-                // Add to appropriate section (preserve ALL content)
-                if (line.trim() || currentSection === 'description') { // Keep empty lines in description
-                    switch (currentSection) {
-                        case 'description':
-                            if (!lowerLine.includes('technical') && !lowerLine.includes('feature details')) {
-                                description.push(line);
-                            }
-                            break;
-                        case 'technical':
-                            technicalDetails.push(line);
-                            break;
-                        case 'howtoplay':
-                            howToPlay.push(line);
-                            break;
-                        case 'desktop':
-                            desktopControls.push(line);
-                            break;
-                        case 'mobile':
-                            mobileControls.push(line);
-                            break;
-                        case 'tablet':
-                            tabletControls.push(line);
-                            break;
-                    }
+                // Check for rating
+                if (line.includes('⭐') || (lowerLine.includes('rating') && line.includes('/'))) {
+                    rating = line;
                 }
+                
+                // Add to appropriate section
+                if (currentSection === 'description') {
+                    if (line) description.push(line);
+                } else if (currentSection === 'technical') {
+                    if (line) technicalDetails.push(line);
+                } else if (currentSection === 'howtoplay') {
+                    if (line) howToPlayContent.push(line);
+                } else if (currentSection === 'desktop') {
+                    if (line) desktopControls.push(line);
+                } else if (currentSection === 'mobile') {
+                    if (line) mobileControls.push(line);
+                } else if (currentSection === 'tablet') {
+                    if (line) tabletControls.push(line);
+                }
+                
+                i++;
             }
 
-            // Generate HTML with exact Basket Random structure
+            // Generate HTML
+            const escapeHtml = (str) => {
+                return str.replace(/&/g, "&amp;")
+                         .replace(/</g, "&lt;")
+                         .replace(/>/g, "&gt;")
+                         .replace(/"/g, "&quot;")
+                         .replace(/'/g, "&#039;");
+            };
+
             let html = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${title}</title>
+    <title>${escapeHtml(title || 'Game Title')}</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
             margin: 0;
             padding: 20px;
             background-color: #f4f4f4;
+            color: #333;
         }
         .container-box {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
         }
         .box {
             background: white;
             margin: 20px 0;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: 1px solid #e0e0e0;
         }
         .features-table {
             width: 100%;
             border-collapse: collapse;
             margin: 15px 0;
+            background: white;
         }
         .features-table th, .features-table td {
             border: 1px solid #ddd;
-            padding: 12px;
+            padding: 12px 15px;
             text-align: left;
+            vertical-align: top;
         }
         .features-table th {
-            background-color: #f2f2f2;
+            background-color: #f8f9fa;
             font-weight: bold;
+            color: #495057;
         }
         .features-table tr:nth-child(even) {
             background-color: #f9f9f9;
         }
         h1, h2, h3 {
             color: #333;
+            margin-top: 0;
         }
         h2 {
-            border-bottom: 2px solid #007cba;
+            color: #34495e;
+            border-bottom: 2px solid #3498db;
             padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 768px) {
+            .container-box { padding: 0 10px; }
+            .box { padding: 15px; margin: 10px 0; }
+            .features-table th, .features-table td { padding: 8px 10px; font-size: 14px; }
         }
     </style>
 </head>
@@ -378,92 +439,51 @@
     <div class="container-box">
         <!-- Box 1: Game Introduction -->
         <div class="box">
-            <h2>${title}</h2>`;
+            <h2>${escapeHtml(title || 'Game Title')}</h2>`;
 
             // Add description
             if (description.length > 0) {
-                const descText = description.filter(line => line.trim()).join(' ');
-                if (descText) {
+                const descText = description.join(' ');
+                if (descText.trim()) {
                     html += `
-            <p>
-                ${descText}
-            </p><br><br>`;
+            <p style="font-size: 16px; text-align: justify;">
+                ${escapeHtml(descText)}
+            </p>`;
                 }
             }
 
-            // Add rating
+            // Add rating box
             if (rating) {
                 html += `
             <div class="box" style="text-align:center;">
                 <h2>Global Rating</h2>
-                <h3>${rating}</h3>
+                <h3>${escapeHtml(rating)}</h3>
             </div>`;
             }
 
             html += `
-        </div>`;
+        </div>
 
-            // Add technical details
+        <!-- Box 2: Technical Details -->`;
+
             if (technicalDetails.length > 0) {
                 html += `
-
-        <!-- Box 2: How to Play Controls -->
         <div class="box">
             <h2>Technical Details</h2>
             <table class="features-table">`;
 
                 technicalDetails.forEach(line => {
-                    if (line.trim() && line.includes('\t')) {
-                        // Handle tab-separated content
+                    if (line.includes('\t')) {
                         const parts = line.split('\t');
                         if (parts.length >= 2) {
-                            html += `
+                            // Skip header row
+                            if (!(parts[0].toLowerCase().includes('feature') && parts[1].toLowerCase().includes('details'))) {
+                                html += `
                 <tr>
-                    <td><strong>${parts[0].trim()}</strong></td>
-                    <td>${parts[1].trim()}</td>
+                    <td><strong>${escapeHtml(parts[0].trim())}</strong></td>
+                    <td>${escapeHtml(parts[1].trim())}</td>
                 </tr>`;
-                        }
-                    } else if (line.trim() && line.includes(':')) {
-                        // Handle colon-separated content
-                        const colonIndex = line.indexOf(':');
-                        const key = line.substring(0, colonIndex).trim();
-                        const value = line.substring(colonIndex + 1).trim();
-                        if (key && value) {
-                            html += `
-                <tr>
-                    <td><strong>${key}</strong></td>
-                    <td>${value}</td>
-                </tr>`;
-                        }
-                    } else if (line.trim()) {
-                        // Try to parse concatenated key-value pairs
-                        const techLine = line.trim();
-                        if (techLine.includes('Technology') || techLine.includes('Developer') || 
-                            techLine.includes('Platform') || techLine.includes('Classification') || 
-                            techLine.includes('Controls') || techLine.includes('Rating') || 
-                            techLine.includes('Update')) {
-                            
-                            // Extract using common patterns
-                            const patterns = [
-                                {key: 'Technology', regex: /Technology[:\s]*(.*?)(?=Developer|Platform|$)/i},
-                                {key: 'Developer', regex: /Developer[:\s]*(.*?)(?=Platform|Classification|$)/i},
-                                {key: 'Platform', regex: /Platform[:\s]*(.*?)(?=Classification|Controls|$)/i},
-                                {key: 'Classification', regex: /Classification[:\s]*(.*?)(?=Controls|Rating|$)/i},
-                                {key: 'Controls', regex: /Controls[:\s]*(.*?)(?=Rating|Update|$)/i},
-                                {key: 'Global Rating', regex: /(?:Global )?Rating[:\s]*(.*?)(?=Update|$)/i},
-                                {key: 'Game Last Update', regex: /(?:Game Last )?Update[:\s]*(.*?)$/i}
-                            ];
-                            
-                            patterns.forEach(pattern => {
-                                const match = techLine.match(pattern.regex);
-                                if (match && match[1] && match[1].trim()) {
-                                    html += `
-                <tr>
-                    <td><strong>${pattern.key}</strong></td>
-                    <td>${match[1].trim()}</td>
-                </tr>`;
-                                }
-                            });
+                            }
                         }
                     }
                 });
@@ -477,111 +497,89 @@
     </div>
 
 
-    <!-- Additional Content (Hidden Initially) -->`;
+    <!-- Additional Content -->`;
 
-            // Add How to Play section
-            if (howToPlay.length > 0) {
+            // How to Play section
+            if (howToPlayContent.length > 0 || desktopControls.length > 0 || mobileControls.length > 0 || tabletControls.length > 0) {
                 html += `
 
     <div class="container-box">
         <div class="box">`;
 
-                howToPlay.forEach((line, index) => {
-                    if (index === 0) {
-                        html += `
-            <h2>${line}</h2>`;
-                    } else if (line.trim()) {
-                        html += `
-            <p>
-                ${line}
-            </p>`;
+                // How to play header and description
+                if (howToPlayContent.length > 0) {
+                    html += `
+            <h2>${escapeHtml(howToPlayContent[0])}</h2><br>`;
+                    
+                    for (let j = 1; j < howToPlayContent.length; j++) {
+                        const line = howToPlayContent[j];
+                        if (line && !line.toLowerCase().includes('controls')) {
+                            html += `
+            <p>${escapeHtml(line)}</p>`;
+                        }
                     }
-                });
+                }
 
-                html += `<br>
+                html += `
 
             <div class="container-box">`;
 
-                // Add controls sections
+                // Controls sections
                 const controlSections = [
-                    {name: 'Desktop', data: desktopControls, emoji: '🖥️'},
-                    {name: 'Mobile', data: mobileControls, emoji: '📱'},
-                    {name: 'Tablet', data: tabletControls, emoji: '📱'}
+                    {name: 'Desktop', data: desktopControls},
+                    {name: 'Mobile', data: mobileControls}, 
+                    {name: 'Tablet', data: tabletControls}
                 ];
 
-                controlSections.forEach((section, sectionIndex) => {
+                controlSections.forEach((section, index) => {
                     if (section.data.length > 0) {
+                        let sectionTips = []; // Store tips separately
+                        
                         html += `
                 <div class="box">
-                    <h2>${section.data[0]}</h2>
+                    <h2>${escapeHtml(section.data[0])}</h2>
                     <table class="features-table">
                         <tr>
                             <th>Action</th>
                             <th>Control</th>
                         </tr>`;
 
-                        // Process control lines
-                        for (let i = 1; i < section.data.length; i++) {
-                            const controlLine = section.data[i];
-                            if (controlLine.includes('\t')) {
-                                const parts = controlLine.split('\t');
+                        for (let j = 1; j < section.data.length; j++) {
+                            const line = section.data[j];
+                            if (line.includes('\t')) {
+                                const parts = line.split('\t');
                                 if (parts.length >= 2) {
-                                    html += `
-                        <tr>
-                            <td>${parts[0].trim()}</td>
-                            <td>${parts[1].trim()}</td>
-                        </tr>`;
-                                }
-                            } else if (controlLine.includes(':')) {
-                                const colonIndex = controlLine.indexOf(':');
-                                const action = controlLine.substring(0, colonIndex).trim();
-                                const control = controlLine.substring(colonIndex + 1).trim();
-                                if (action && control) {
-                                    html += `
-                        <tr>
-                            <td>${action}</td>
-                            <td>${control}</td>
-                        </tr>`;
-                                }
-                            } else if (controlLine.includes('🎯')) {
-                                html += `
-                        <tr>
-                            <td>🎯 Quick Tip</td>
-                            <td>${controlLine.replace(/🎯.*?:/, '').trim()}</td>
-                        </tr>`;
-                            } else if (controlLine.trim()) {
-                                // Try to parse concatenated action-control pairs
-                                const cLine = controlLine.trim();
-                                const actionControlPairs = [
-                                    {action: 'Accelerate', regex: /Accelerate(.*?)(?=Brake|Balance|Start|$)/i},
-                                    {action: 'Brake / Reverse', regex: /Brake.*?Reverse(.*?)(?=Balance|Start|$)/i},
-                                    {action: 'Balance Egg Forward', regex: /Balance.*?Forward(.*?)(?=Balance.*?Back|Start|$)/i},
-                                    {action: 'Balance Egg Back', regex: /Balance.*?Back(.*?)(?=Start|$)/i},
-                                    {action: 'Balance Egg', regex: /Balance Egg(.*?)(?=Start|$)/i},
-                                    {action: 'Start Game', regex: /Start Game(.*?)$/i}
-                                ];
-                                
-                                actionControlPairs.forEach(pair => {
-                                    const match = cLine.match(pair.regex);
-                                    if (match && match[1] && match[1].trim()) {
+                                    // Skip header rows
+                                    if (!(parts[0].toLowerCase() === 'action' && parts[1].toLowerCase() === 'control')) {
                                         html += `
                         <tr>
-                            <td>${pair.action}</td>
-                            <td>${match[1].trim()}</td>
+                            <td>${escapeHtml(parts[0].trim())}</td>
+                            <td>${escapeHtml(parts[1].trim())}</td>
                         </tr>`;
                                     }
-                                });
+                                }
+                            } else if (line.includes('🎯') && line.includes(':')) {
+                                // Store tip for later use, don't add to table
+                                const tipText = line.substring(line.indexOf(':') + 1).trim();
+                                sectionTips.push(tipText);
                             }
                         }
 
                         html += `
-                    </table><br>
-                    <div class="box"><p><strong>🎯 ${section.name} Tip:</strong> ${section.name === 'Desktop' ? 'Master the controls for better gameplay experience!' : section.name === 'Mobile' ? 'Touch controls make it perfect for gaming on the go!' : 'Larger screen provides the best gaming experience!'}
-                    </p></div>
+                    </table><br>`;
+                    
+                        // Add tips in separate box below table
+                        if (sectionTips.length > 0) {
+                            html += `
+                    <div class="box"><p><strong>🎯 ${section.name} Tip:</strong> ${escapeHtml(sectionTips[0])}</p></div>`;
+                        }
+                        
+                        html += `
                 </div>`;
 
-                        if (sectionIndex < controlSections.length - 1) {
+                        if (index < controlSections.filter(s => s.data.length > 0).length - 1) {
                             html += `
+
 
 
 
@@ -606,12 +604,12 @@
         function copyToClipboard() {
             const outputCode = document.getElementById('outputCode').textContent;
             if (!outputCode || outputCode === 'HTML output will appear here...') {
-                showStatus('Convert text first!', 'error');
+                showStatus('❌ Convert text first!', 'error');
                 return;
             }
             
             navigator.clipboard.writeText(outputCode).then(() => {
-                showStatus('✅ Code copied successfully!');
+                showStatus('✅ Code copied to clipboard!');
             }).catch(() => {
                 const textArea = document.createElement('textarea');
                 textArea.value = outputCode;
@@ -619,14 +617,14 @@
                 textArea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
-                showStatus('✅ Code copied successfully!');
+                showStatus('✅ Code copied to clipboard!');
             });
         }
 
         function downloadHTML() {
             const outputCode = document.getElementById('outputCode').textContent;
             if (!outputCode || outputCode === 'HTML output will appear here...') {
-                showStatus('Convert text first!', 'error');
+                showStatus('❌ Convert text first!', 'error');
                 return;
             }
             
@@ -639,7 +637,6 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
             showStatus('✅ File downloaded!');
         }
 
@@ -648,6 +645,44 @@
             document.getElementById('outputCode').textContent = 'HTML output will appear here...';
             document.getElementById('previewFrame').src = '';
             showStatus('✅ Cleared!');
+        }
+
+        function loadSampleData() {
+            const sampleText = `Think you've mastered the first two games? World's Hardest Game 3 raises the stakes with brand-new levels, smarter enemy patterns, and brain-bending obstacles that will keep you on edge! 🕹️ This puzzle-arcade masterpiece is all about strategy, precision, and quick thinking. Every move matters as you guide the iconic red square through increasingly difficult stages while collecting every coin. Play this fan-favorite game free at Basket Random with no installation needed. Available online on all devices – desktop, mobile, and tablet – so you can challenge yourself anywhere, anytime. If you're looking for one of the toughest games on the internet, this is it!
+TECHNICAL DETAILS
+Feature	Details
+Technology	HTML5
+Developer	Snubby Land
+Platform	Desktop, Mobile, Tablet
+Classification	Arcade / Puzzle / Reflex Game
+Controls	Keyboard (Desktop), Touch (Mobile)
+Rating (Global)	⭐ 4.6/5
+Game Last Update	September 2025
+How to Play World's Hardest Game 3 on All Devices
+This game is designed to push even the most skilled players to their limits! Your mission is simple but incredibly difficult: collect every coin on the screen, dodge enemies, and safely reach the green safe zone. With tight controls and responsive gameplay, you can enjoy the action seamlessly on desktop, mobile, or tablet.
+🖥 Desktop Controls
+Action	Control
+Move Up	⬆ Up Arrow
+Move Down	⬇ Down Arrow
+Move Left	⬅ Left Arrow
+Move Right	➡ Right Arrow
+Pause / Settings	⌨ P Key
+🎯 Quick Tip: Watch enemy patterns closely – timing is everything!
+📱 Mobile Controls
+Action	Control
+Move Character	🖱 On-Screen Joystick
+Navigate Menu	👆 Tap Buttons
+Pause Game	🖱 On-Screen Pause Button
+🎯 Quick Tip: Use short, controlled movements for better precision!
+📟 Tablet Controls
+Action	Control
+Move Character	🖱 On-Screen Joystick
+Navigate Menu	👆 Tap Buttons
+Pause Game	🖱 On-Screen Pause Button
+🎯 Quick Tip: Use the bigger screen to plan safe coin collection routes!`;
+
+            document.getElementById('inputText').value = sampleText;
+            showStatus('📋 Sample data loaded! Click "Smart Convert" to test.');
         }
     </script>
 </body>
